@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: friendservice #{{ template "first-stab.fullname" . }}
+  labels:
+    app: friendservice #{{ template "first-stab.name" . }}
+    chart: {{ template "first-stab.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: friendservice
+  serviceName: friendservice
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: friendservice
+        istio-injection: "enabled"
+    spec:
+      containers:
+        - name: friendservice
+          image: "chirper/friend-impl"
+          imagePullPolicy: "Never"
+          resources:
+            requests:
+              memory: "512Mi"
+          ports:
+            - containerPort: 9000
+              name: "http-lagom-api"
+            - containerPort: 2551
+              name: "akka-remote"
+          env:
+            - name: "APPLICATION_SECRET"
+              value: "{{ .Values.temp.secret }}"
+            - name: "CASSANDRA_SERVICE_NAME"
+              value: "_cql._tcp.{{ .Release.Name }}-cassandra.default.svc.cluster.local"
+            - name: "FRIENDSERVICE_BIND_PORT"
+              value: "9000"
+            - name: "FRIENDSERVICE_BIND_IP"
+              value: "0.0.0.0"
+            - name: "AKKA_REMOTING_PORT"
+              value: "2551"
+            - name: "AKKA_REMOTING_BIND_PORT"
+              value: "2551"
+            - name: "AKKA_REMOTING_HOST"
+              value: "$HOSTNAME.friendservice.default.svc.cluster.local"
+            - name: "AKKA_REMOTING_BIND_HOST"
+              value: "$HOSTNAME.friendservice.default.svc.cluster.local"
+            - name: "AKKA_SEED_NODES"
+              value: "friendservice-0.friendservice.default.svc.cluster.local:2551,friendservice-1.friendservice.default.svc.cluster.local:2551,friendservice-2.friendservice.default.svc.cluster.local:2551"
+          readinessProbe:
+            httpGet:
+              path: "/_status/circuit-breaker/current"
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 5

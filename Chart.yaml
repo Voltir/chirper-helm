@@ -1,0 +1,7 @@
+apiVersion: v1
+description: Turning Lagom's 'Chirper' example into a helm chart
+name: first-stab
+version: 0.1.0
+keywords:
+  - lagom
+  - chirper

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: chirpservice #{{ template "first-stab.fullname" . }}
+  labels:
+    app: chirpservice #{{ template "first-stab.name" . }}
+    chart: {{ template "first-stab.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app: chirpservice
+  serviceName: chirpservice
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: chirpservice
+        istio-injection: "enabled"
+    spec:
+      containers:
+        - name: chirpservice
+          image: "chirper/chirp-impl"
+          imagePullPolicy: "Never"
+          resources:
+            requests:
+              memory: "512Mi"
+          ports:
+            - containerPort: 9000
+              name: "http-lagom-api"
+            - containerPort: 2551
+              name: "akka-remote"
+          env:
+            - name: "APPLICATION_SECRET"
+              value: "{{ .Values.temp.secret }}"
+            - name: "CASSANDRA_SERVICE_NAME"
+              value: "_cql._tcp.{{ .Release.Name }}-cassandra.default.svc.cluster.local"
+            - name: "CHIRPSERVICE_BIND_PORT"
+              value: "9000"
+            - name: "CHIRPSERVICE_BIND_IP"
+              value: "0.0.0.0"
+            - name: "AKKA_REMOTING_PORT"
+              value: "2551"
+            - name: "AKKA_REMOTING_BIND_PORT"
+              value: "2551"
+            - name: "AKKA_REMOTING_HOST"
+              value: "$HOSTNAME.chirpservice.default.svc.cluster.local"
+            - name: "AKKA_REMOTING_BIND_HOST"
+              value: "$HOSTNAME.chirpservice.default.svc.cluster.local"
+            - name: "AKKA_SEED_NODES"
+              value: "chirpservice-0.chirpservice.default.svc.cluster.local:2551,chirpservice-1.chirpservice.default.svc.cluster.local:2551,chirpservice-2.chirpservice.default.svc.cluster.local:2551"
+          readinessProbe:
+            httpGet:
+              path: "/_status/circuit-breaker/current"
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 5
